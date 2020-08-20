@@ -1,13 +1,18 @@
-<?php
+<?php declare(strict_types=1);
+/**
+ * The dependency injection container makes each object a singleton
+ */
 
 use CodeBuddies\AppGlobals;
+use Slim\Views\PhpRenderer;
 
 $container = $app->getContainer();
 
 // view renderer
-$container['view'] = function($c) {
-    return new \Slim\Views\PhpRenderer('templates/');
-};
+$container['view'] = fn($c) => new PhpRenderer('templates/');
+
+// hack match user
+$container['codeUser'] = fn($c) => $c['settings']['codeUser'];
 
 // monolog
 $container['logger'] = function($c) {
@@ -18,48 +23,17 @@ $container['logger'] = function($c) {
     return $logger;
 };
 
-// code buddies user
-$container['codeUser'] = function($c) {
-    return $c['settings']['codeUser'];
-};
+// local db
+if(AppGlobals::isLocal()) $container['dbLocal'] = fn($c) => dbHackMatch($c);
+// CloudSQL db
+else $container['dbProduction'] = fn($c) => dbHackMatch($c, 'dbCloud', true);
 
-if(!AppGlobals::isLocal()) {
-    // The CloudSQL Code Buddies Connect db
-    $container['dbProduction'] = function($c) {
-        $dbSettings = $c['settings']['dbProduction'];
-        $dbName = $dbSettings['db'];
-        $host = $dbSettings['host'];
-        $user = $dbSettings['user'];
-        $pass = $dbSettings['pass'];
-        
-        $dsn = sprintf('mysql:dbname=%s;unix_socket=/cloudsql/%s', $dbName, $host);
-        $dsnHost = sprintf('mysql:dbname=%s;host=%s', $dbName, $host);
-        
-        return new PDO($dsn, $user, $pass, [
-            //PDO::ATTR_TIMEOUT => 5,
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-    };
+function dbHackMatch($c, string $dbSetting = 'dbLocal', $cloud = false): PDO {
+    $db = $c['settings'][$dbSetting];
+    [$n, $h, $u, $p] = [$db['dbname'], $db['host'], $db['user'], $db['pass']];
+    $x = 'mysql:dbname=%s;' . ($cloud ? 'unix_socket=/cloudsql/%s' : 'host=%s');
+    return new PDO(sprintf($x, $n, $h), $u, $p, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
 }
-else {
-    // local db
-    $container['dbLocal'] = function($c) {
-        $dbSettings = $c['settings']['dbLocal'];
-        $dbName = $dbSettings['db'];
-        $host = $dbSettings['host'];
-        $user = $dbSettings['user'];
-        $pass = $dbSettings['pass'];
-        
-        $dsnUnixSocket = sprintf('mysql:dbname=%s;unix_socket=/cloudsql/%s', $dbName, $host);
-        $dsn = sprintf('mysql:dbname=%s;host=%s', $dbName, $host);
-        
-        return new PDO($dsn, $user, $pass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-        ]);
-    };
-}
-
-
-

@@ -9,18 +9,15 @@ declare(strict_types=1);
 
 namespace CodeBuddies;
 
-
+/**
+ * Class AppGlobals
+ * @package HackMatch
+ */
 class AppGlobals
 {
-    /**
-     * @var bool
-     */
-    public static $logFromRoutePhp = false;
+    public static bool $logFromRoutePhp = false;
     
-    /**
-     * @var bool
-     */
-    public static $logFromModelUsersPhp = false;
+    public static bool $logFromUsers = false;
     
     /**
      * Determine if app is in local or remote environment
@@ -29,7 +26,7 @@ class AppGlobals
     public static function isLocal(): bool {
         $serverName = $_SERVER['SERVER_NAME'] ?? null;
         // if app is not in CLI mode or server name is both not null and equal to local ip
-        return (PHP_SAPI == 'cli' || (!is_null($serverName) && $serverName == '10.0.0.210'));
+        return (PHP_SAPI == 'cli' || (!is_null($serverName) && $serverName == 'localhost'));
     }
     
     /**
